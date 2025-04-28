@@ -1,4 +1,5 @@
 import pandas as pd
+import time
 
 def read_xls_files(files) -> list[pd.DataFrame]:
     df_list = []
@@ -31,11 +32,29 @@ def execute(files_and_target_ratios: dict, start_date: str, end_date: str, cycle
     cur_day = start_date
 
     cur_price = []
+    date_and_price_list = []
+
     for df in df_list:
-        row = df.iloc[0]
-        while df.iloc[0]['日期'] <= cur_day:
-            df, row = pop_row(df)
-        cur_price.append(row['累计净值'])
+        # row = df.iloc[0]
+        # while df.iloc[0]['日期'] <= cur_day:
+        #     df, row = pop_row(df)
+        # cur_price.append(row['累计净值'])
+        date_and_price = []
+        for idx, row in df.iterrows():
+            date_and_price.append([row['日期'], row['累计净值']])
+        date_and_price_list.append(date_and_price)
+
+    for i in range(len(date_and_price_list)):
+        date_and_price = date_and_price_list[i]
+        row = date_and_price[0]
+        while date_and_price[0][0] <= cur_day:
+            row = date_and_price[0]
+            date_and_price = date_and_price[1:]
+            if len(date_and_price) == 0:
+                break
+        if len(date_and_price) == 0:
+            break
+        cur_price.append(row[1])
 
     start_timestamp = pd.Timestamp(start_date).timestamp()
     now_timestamp = pd.Timestamp.now().timestamp()
@@ -49,21 +68,22 @@ def execute(files_and_target_ratios: dict, start_date: str, end_date: str, cycle
     while cur_day < end_date:
         print(cur_day)
         today_money = []
-        for i in range(len(df_list)):
-            df = df_list[i]
-            row = df.iloc[0]
-            while df.iloc[0]['日期'] <= cur_day:
-                df, row = pop_row(df)
-                if df.empty:
+        for i in range(len(date_and_price_list)):
+            df = date_and_price_list[i]
+            row = df[0]
+            while df[0][0] <= cur_day:
+                row = df[0]
+                df = df[1:]
+                if len(df) == 0:
                     break
-            if df.empty:
+            if len(df) == 0:
                 break
-            now_price = row['累计净值']
+            now_price = row[1]
             last_money = data_each_day[-1][i + 1]
             cur_money = last_money * now_price / cur_price[i]
             today_money.append(float(cur_money))
             cur_price[i] = now_price
-        if df.empty:
+        if len(df) == 0:
             break
 
         # 判断是否要调仓
